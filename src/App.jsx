@@ -390,67 +390,56 @@ const COMITES_CONFIG = [
 
 function PantallaInicio({onSeleccionar}) {
   const iconos = {
-    lunes:     { svg: <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> },
-    legal:     { svg: <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18M5 7l7-4 7 4M5 17l7 4 7-4"/><path d="M5 7v10M19 7v10"/><path d="M3 17h4M17 17h4"/></svg> },
-    admin:     { svg: <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 7h4M6 11h8M14 7h4"/></svg> },
-    proyectos: { svg: <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+    lunes:     { svg: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> },
+    legal:     { svg: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18M5 7l7-4 7 4M5 17l7 4 7-4"/><path d="M5 7v10M19 7v10"/><path d="M3 17h4M17 17h4"/></svg> },
+    admin:     { svg: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M6 7h4M6 11h8M14 7h4"/></svg> },
+    proyectos: { svg: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-6 9 6v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
   };
 
   return(
-    <div style={{minHeight:"100vh",background:"#0f0f0f",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif",padding:32,position:"relative",overflow:"hidden"}}>
-      {/* Fondo decorativo */}
+    <div style={{minHeight:"100vh",background:"#0a0a0a",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Segoe UI',system-ui,sans-serif",padding:32,position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,#FCC000,#B8860B)"}} />
-      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle at 20% 50%, #FCC00008 0%, transparent 60%), radial-gradient(circle at 80% 20%, #FCC00005 0%, transparent 50%)",pointerEvents:"none"}} />
+      <div style={{position:"absolute",inset:0,backgroundImage:"radial-gradient(circle at 25% 40%, rgba(252,192,0,0.06) 0%, transparent 55%), radial-gradient(circle at 75% 70%, rgba(252,192,0,0.04) 0%, transparent 50%)",pointerEvents:"none"}} />
 
-      {/* Logo Binda */}
-      <div style={{marginBottom:48,textAlign:"center",position:"relative"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:10}}>
-          {/* Isotipo casa */}
-          <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+      {/* Logo */}
+      <div style={{marginBottom:52,textAlign:"center",position:"relative"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:12}}>
+          <svg width="40" height="40" viewBox="0 0 38 38" fill="none">
             <path d="M19 4L35 16V34H23V24H15V34H3V16L19 4Z" fill="#FCC000"/>
-            <path d="M19 4L35 16V34H23V24H15V34H3V16L19 4Z" fill="none" stroke="#B8860B" strokeWidth="1"/>
           </svg>
-          <div style={{fontSize:36,fontWeight:900,color:"#ffffff",letterSpacing:6,fontFamily:"'Segoe UI',system-ui,sans-serif"}}>BINDA</div>
+          <div style={{fontSize:38,fontWeight:900,color:"#ffffff",letterSpacing:7}}>BINDA</div>
         </div>
-        <div style={{width:48,height:2,background:"#FCC000",margin:"0 auto 12px"}} />
-        <div style={{fontSize:11,color:"#666",letterSpacing:4,textTransform:"uppercase"}}>Sistema de Comités</div>
+        <div style={{width:48,height:2,background:"#FCC000",margin:"0 auto 14px"}} />
+        <div style={{fontSize:12,color:"#aaaaaa",letterSpacing:5,textTransform:"uppercase"}}>Sistema de Comités</div>
       </div>
 
       {/* Grid 2x2 */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,width:"100%",maxWidth:720}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,width:"100%",maxWidth:740}}>
         {COMITES_CONFIG.map(c=>(
           <div key={c.id} onClick={()=>onSeleccionar(c)}
-            style={{background:"#1a1a1a",border:"1px solid #2a2a2a",borderRadius:16,padding:"28px 24px",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
-            onMouseOver={e=>{e.currentTarget.style.border=`1px solid ${c.color}66`;e.currentTarget.style.background="#222";e.currentTarget.style.transform="translateY(-2px)";}}
-            onMouseOut={e=>{e.currentTarget.style.border="1px solid #2a2a2a";e.currentTarget.style.background="#1a1a1a";e.currentTarget.style.transform="translateY(0)";}}>
-            {/* Línea color izquierda */}
-            <div style={{position:"absolute",top:0,left:0,width:3,height:"100%",background:c.color,borderRadius:"16px 0 0 16px"}} />
-            <div style={{paddingLeft:8}}>
-              {/* Icono */}
-              <div style={{color:c.color,marginBottom:16,opacity:0.9}}>{iconos[c.id].svg}</div>
-              {/* Nombre */}
-              <div style={{fontSize:17,fontWeight:700,color:"#f0ede8",marginBottom:5,letterSpacing:0.3}}>{c.nombre}</div>
-              {/* Subtítulo */}
-              <div style={{fontSize:12,color:"#555",marginBottom:20}}>{c.subtitulo}</div>
-              {/* Botón */}
-              <div style={{display:"inline-flex",alignItems:"center",gap:6,background:`${c.color}18`,border:`1px solid ${c.color}44`,borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:700,color:c.color,letterSpacing:0.5}}>
+            style={{background:"#1a1a1a",border:"1px solid #333",borderRadius:16,padding:"32px 28px",cursor:"pointer",transition:"all 0.2s",position:"relative",overflow:"hidden"}}
+            onMouseOver={e=>{e.currentTarget.style.border=`1px solid ${c.color}`;e.currentTarget.style.background="#242424";e.currentTarget.style.transform="translateY(-3px)";e.currentTarget.style.boxShadow=`0 12px 40px ${c.color}22`;}}
+            onMouseOut={e=>{e.currentTarget.style.border="1px solid #333";e.currentTarget.style.background="#1a1a1a";e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow="none";}}>
+            <div style={{position:"absolute",top:0,left:0,width:4,height:"100%",background:c.color,borderRadius:"16px 0 0 16px"}} />
+            <div style={{paddingLeft:10}}>
+              <div style={{color:c.color,marginBottom:18}}>{iconos[c.id].svg}</div>
+              <div style={{fontSize:18,fontWeight:700,color:"#ffffff",marginBottom:8,letterSpacing:0.3}}>{c.nombre}</div>
+              <div style={{fontSize:13,color:"#bbbbbb",marginBottom:24,lineHeight:1.5}}>{c.subtitulo}</div>
+              <div style={{display:"inline-flex",alignItems:"center",gap:8,background:`${c.color}22`,border:`1px solid ${c.color}66`,borderRadius:8,padding:"7px 16px",fontSize:13,fontWeight:700,color:c.color}}>
                 Abrir
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Footer */}
-      <div style={{marginTop:40,fontSize:11,color:"#333",letterSpacing:1}}>
+      <div style={{marginTop:44,fontSize:11,color:"#777",letterSpacing:2}}>
         BINDA GRUPO INMOBILIARIO · {new Date().getFullYear()}
       </div>
     </div>
   );
 }
-
-// ─── VISTA COMITÉ ─────────────────────────────────────────────
 function VistaComite({comite, onVolver}) {
   const [estado,    setEstado]    = useState(null);
   const [cargando,  setCargando]  = useState(true);
