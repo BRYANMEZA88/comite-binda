@@ -10,12 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
-=======
     "firebase": "^12.13.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
->>>>>>> 417de641498f8f4ec72e71a70192b4f4096a5a1d
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
