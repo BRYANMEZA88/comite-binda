@@ -16,7 +16,11 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 async function guardar(docId, data) {
-  try { await setDoc(doc(db, "binda", docId), data); } catch(e) { console.error(e); }
+  try {
+    // Limpiar undefined antes de guardar
+    const limpio = JSON.parse(JSON.stringify(data, (k,v) => v === undefined ? null : v));
+    await setDoc(doc(db, "binda", docId), limpio);
+  } catch(e) { console.error(e); }
 }
 async function cargar(docId) {
   try { const s = await getDoc(doc(db, "binda", docId)); if(s.exists()) return s.data(); } catch(e) {}
@@ -456,8 +460,8 @@ function VistaComite({comite, onVolver}) {
 
   useEffect(()=>{
     cargar(docId).then(async data=>{
-      if(data && data.orden && data.orden.length > 0){
-        setEstado(data); setActivo(data.orden[0]||null);
+      if(data && (data.orden !== undefined || data.items !== undefined)){
+        setEstado(data); setActivo((data.orden||[])[0]||null);
       } else if(comite.id==="lunes"){
         const viejo = await cargar("estado");
         if(viejo && viejo.proyData){
@@ -876,6 +880,11 @@ function TabVentasGeneral({nombre,ventas,item,color,onEditarVentas,onEditarItem}
 // ─── APP PRINCIPAL ────────────────────────────────────────────
 export default function App() {
   const [comiteActivo,setComiteActivo]=useState(null);
+  useEffect(()=>{
+    document.body.style.margin="0";
+    document.body.style.background = comiteActivo ? "#f3f4f6" : "#0a0a0a";
+    document.documentElement.style.background = comiteActivo ? "#f3f4f6" : "#0a0a0a";
+  },[comiteActivo]);
   return comiteActivo
     ? <VistaComite comite={comiteActivo} onVolver={()=>setComiteActivo(null)}/>
     : <PantallaInicio onSeleccionar={setComiteActivo}/>;
