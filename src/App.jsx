@@ -16,7 +16,11 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
 async function guardar(docId, data) {
-  try { await setDoc(doc(db, "binda", docId), data); } catch(e) { console.error(e); }
+  try {
+    // Limpiar undefined antes de guardar
+    const limpio = JSON.parse(JSON.stringify(data, (k,v) => v === undefined ? null : v));
+    await setDoc(doc(db, "binda", docId), limpio);
+  } catch(e) { console.error(e); }
 }
 async function cargar(docId) {
   try { const s = await getDoc(doc(db, "binda", docId)); if(s.exists()) return s.data(); } catch(e) {}
