@@ -37,7 +37,7 @@ const ESTADO_STYLE = {
   "Bloqueado":  {bg:"#fde8e8",text:"#b91c1c",border:"#f5a5a5"},
 };
 const ESTADOS      = ["En Proceso","En espera","Completado","Bloqueado"];
-const RESPONSABLES = ["Roy","Kate","Klaus","Bryan","Mirtha","Jesus","Italo","Miguel C."];
+const RESPONSABLES = ["Roy","Kate","Klaus","Bryan","Mirtha","Jesus","Italo","Miguel C.","Alvaro","Nelly","Jaime","Italo BG"];
 
 // ─── DATOS INICIALES COMITÉ LUNES ────────────────────────────
 const LUNES_INICIAL = {
@@ -180,8 +180,8 @@ function ModalTarea({tarea,color,seccion,secciones,proyectoNombre,onSave,onDelet
           </div>
           <div>
             <label style={{fontSize:11,color:"#888",letterSpacing:1,textTransform:"uppercase",display:"block",marginBottom:5}}>Nota</label>
-            <input value={form.nota} onChange={e=>set("nota",e.target.value)}
-              style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,boxSizing:"border-box",color:"#555"}}/>
+            <textarea value={form.nota} onChange={e=>set("nota",e.target.value)} rows={3}
+              style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,boxSizing:"border-box",color:"#555",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
           </div>
           <div style={{display:"flex",gap:10}}>
             <button onClick={()=>onSave(form)} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:8,padding:"12px",cursor:"pointer",fontWeight:700,fontSize:14}}>Guardar</button>
@@ -455,6 +455,7 @@ function VistaComite({comite, onVolver}) {
   const [modalVentas,setModalVentas]=useState(false);
   const [modalItem,  setModalItem] =useState(null); // null | "nuevo" | nombre
   const [modalSecciones,setModalSecciones]=useState(false);
+  const [sidebarDrag,setSidebarDrag]=useState(null);
 
   const docId = `comite_${comite.id}`;
 
@@ -538,12 +539,21 @@ function VistaComite({comite, onVolver}) {
     setModalTarea(null);
   }
 
-  function moverTarea(seccion,idx,dir) {
+  function moverTarea(seccionOrigen, idxOrigen, seccionDestino, idxDestino) {
     upd(prev=>{
-      const tareas=[...(prev.items[activo].tareas[seccion]||[])];
-      const j=idx+dir; if(j<0||j>=tareas.length) return {};
-      [tareas[idx],tareas[j]]=[tareas[j],tareas[idx]];
-      return{items:{...prev.items,[activo]:{...prev.items[activo],tareas:{...prev.items[activo].tareas,[seccion]:tareas}}}};
+      const it = prev.items[activo];
+      const tareasOrigen = [...(it.tareas[seccionOrigen]||[])];
+      const tarea = tareasOrigen[idxOrigen];
+      if(!tarea) return {};
+      tareasOrigen.splice(idxOrigen, 1);
+      if(seccionOrigen === seccionDestino) {
+        tareasOrigen.splice(idxDestino, 0, tarea);
+        return{items:{...prev.items,[activo]:{...it,tareas:{...it.tareas,[seccionOrigen]:tareasOrigen}}}};
+      } else {
+        const tareasDestino = [...(it.tareas[seccionDestino]||[])];
+        tareasDestino.splice(idxDestino, 0, tarea);
+        return{items:{...prev.items,[activo]:{...it,tareas:{...it.tareas,[seccionOrigen]:tareasOrigen,[seccionDestino]:tareasDestino}}}};
+      }
     });
   }
 
@@ -626,7 +636,11 @@ function VistaComite({comite, onVolver}) {
             const urg=Object.values(d.tareas||{}).flat().filter(t=>{const dias=diasHasta(t.vencimiento);return dias!==null&&dias<=7&&t.estado!=="Completado";}).length;
             const esActivo=activo===p;
             return(
-              <div key={p} style={{marginBottom:4,position:"relative"}}>
+              <div key={p} draggable
+                onDragStart={()=>setSidebarDrag(idx)}
+                onDragOver={e=>e.preventDefault()}
+                onDrop={()=>{if(sidebarDrag!==null&&sidebarDrag!==idx){const orden=[...(estado.orden||[])];const [moved]=orden.splice(sidebarDrag,1);orden.splice(idx,0,moved);upd(()=>({orden}));setSidebarDrag(null);}}}
+                style={{marginBottom:4,position:"relative",opacity:sidebarDrag===idx?0.5:1,cursor:"grab"}}>
                 <div onClick={()=>{setActivo(p);setTabActiva("tareas");}} style={{
                   background:esActivo?`${d.color}12`:"transparent",
                   border:`1px solid ${esActivo?d.color:"transparent"}`,
@@ -750,12 +764,38 @@ function VistaComite({comite, onVolver}) {
   );
 }
 
+function NotaPopup({nota, onClose}) {
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+      <div style={{background:"#fff",borderRadius:12,padding:24,maxWidth:440,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:700,fontSize:14,color:"#111"}}>Nota</div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"#999",fontSize:18,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{fontSize:13,color:"#444",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{nota}</div>
+      </div>
+    </div>
+  );
+}
+
 function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
   const secciones=item.secciones||[];
   const todasTareas=Object.values(item.tareas||{}).flat();
   const urgentes=todasTareas.filter(t=>{const d=diasHasta(t.vencimiento);return d!==null&&d<=7&&t.estado!=="Completado";}).length;
+  const [notaVisible, setNotaVisible] = useState(null);
+  const [dragSrc, setDragSrc] = useState(null); // {seccion, idx}
+
+  function handleDragStart(seccion, idx) { setDragSrc({seccion, idx}); }
+  function handleDrop(seccion, idx) {
+    if(!dragSrc) return;
+    if(dragSrc.seccion === seccion && dragSrc.idx === idx) return;
+    onMover(dragSrc.seccion, dragSrc.idx, seccion, idx);
+    setDragSrc(null);
+  }
+
   return(
     <div>
+      {notaVisible && <NotaPopup nota={notaVisible} onClose={()=>setNotaVisible(null)}/>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           {[{label:"Total",val:todasTareas.length,c:"#374151"},{label:"En proceso",val:todasTareas.filter(t=>t.estado==="En Proceso").length,c:"#8a6000"},{label:"Urgentes",val:urgentes,c:urgentes>0?"#b91c1c":"#9ca3af"},{label:"Completadas",val:todasTareas.filter(t=>t.estado==="Completado").length,c:"#1a7a3c"}].map(k=>(
@@ -778,29 +818,35 @@ function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
               <span style={{fontSize:11,color:"#9ca3af"}}>{tareas.length} tarea{tareas.length!==1?"s":""}</span>
               <button onClick={()=>onNueva(seccion)} style={{marginLeft:"auto",background:"none",border:`1px dashed ${color}88`,borderRadius:6,padding:"3px 10px",color,fontSize:11,cursor:"pointer",fontWeight:600}}>+ agregar</button>
             </div>
-            {tareas.length===0&&<div style={{padding:"8px 12px",fontSize:12,color:"#d1d5db",fontStyle:"italic"}}>Sin tareas.</div>}
+            {tareas.length===0&&(
+              <div
+                onDragOver={e=>e.preventDefault()}
+                onDrop={()=>handleDrop(seccion,0)}
+                style={{padding:"12px 14px",fontSize:12,color:"#d1d5db",fontStyle:"italic",border:"2px dashed transparent",borderRadius:8,transition:"border 0.15s"}}
+                onDragEnter={e=>e.currentTarget.style.borderColor=color}
+                onDragLeave={e=>e.currentTarget.style.borderColor="transparent"}
+              >Sin tareas. Arrastra aquí o agrega una.</div>
+            )}
             {tareas.map((t,i)=>{
               const dias=diasHasta(t.vencimiento);
               const urgente=dias!==null&&dias<=7&&t.estado!=="Completado";
               const st=ESTADO_STYLE[t.estado]||ESTADO_STYLE["En espera"];
               return(
-                <div key={t.id} style={{
-                  display:"grid",gridTemplateColumns:"28px minmax(0,2fr) 75px 90px minmax(80px,1fr) 120px 32px",
-                  alignItems:"center",gap:0,
-                  background:t.estado==="Completado"?"#f0faf4":urgente?"#fff5f5":i%2===0?"#fff":"#fafafa",
-                  borderLeft:urgente?"3px solid #b91c1c":t.estado==="Completado"?"3px solid #1a7a3c":"3px solid transparent",
-                  borderBottom:"1px solid #f0f0f0",opacity:t.estado==="Completado"?0.8:1,
-                }}>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 0",gap:1}}>
-                    <button onClick={()=>onMover(seccion,i,-1)} disabled={i===0}
-                      style={{background:"none",border:"none",cursor:i===0?"default":"pointer",color:i===0?"#e5e7eb":"#9ca3af",fontSize:11,padding:"1px 4px",lineHeight:1}}
-                      onMouseOver={e=>{if(i>0)e.currentTarget.style.color=color}}
-                      onMouseOut={e=>e.currentTarget.style.color=i===0?"#e5e7eb":"#9ca3af"}>▲</button>
-                    <button onClick={()=>onMover(seccion,i,1)} disabled={i===tareas.length-1}
-                      style={{background:"none",border:"none",cursor:i===tareas.length-1?"default":"pointer",color:i===tareas.length-1?"#e5e7eb":"#9ca3af",fontSize:11,padding:"1px 4px",lineHeight:1}}
-                      onMouseOver={e=>{if(i<tareas.length-1)e.currentTarget.style.color=color}}
-                      onMouseOut={e=>e.currentTarget.style.color=i===tareas.length-1?"#e5e7eb":"#9ca3af"}>▼</button>
-                  </div>
+                <div key={t.id}
+                  draggable
+                  onDragStart={()=>handleDragStart(seccion,i)}
+                  onDragOver={e=>e.preventDefault()}
+                  onDrop={()=>handleDrop(seccion,i)}
+                  style={{
+                    display:"grid",gridTemplateColumns:"20px minmax(0,2fr) 75px 90px minmax(80px,1fr) 110px 28px 28px",
+                    alignItems:"center",gap:0,
+                    background:t.estado==="Completado"?"#f0faf4":urgente?"#fff5f5":i%2===0?"#fff":"#fafafa",
+                    borderLeft:urgente?"3px solid #b91c1c":t.estado==="Completado"?"3px solid #1a7a3c":"3px solid transparent",
+                    borderBottom:"1px solid #f0f0f0",opacity:t.estado==="Completado"?0.8:1,
+                    cursor:"grab",transition:"background 0.15s",
+                  }}>
+                  {/* Handle drag */}
+                  <div style={{padding:"0 4px",color:"#d1d5db",fontSize:13,textAlign:"center",cursor:"grab"}}>⠿</div>
                   <div style={{padding:"11px 10px",fontSize:13,color:t.estado==="Completado"?"#6b7280":"#111",fontWeight:500,textDecoration:t.estado==="Completado"?"line-through":"none"}}>{t.tarea}</div>
                   <div style={{padding:"11px 6px",fontSize:12,color:"#6b7280"}}>{t.responsable}</div>
                   <div style={{padding:"11px 6px"}}>
@@ -813,7 +859,14 @@ function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
                   <div style={{padding:"11px 6px",fontSize:11,color:"#9ca3af",display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
                     <span>{formatFecha(t.vencimiento)}</span>
                     <Alerta dias={dias} completado={t.estado==="Completado"}/>
-                    {t.nota&&<span style={{color:"#c0c0c0",fontStyle:"italic",fontSize:10,display:"block",width:"100%"}}>{t.nota}</span>}
+                  </div>
+                  {/* Botón nota */}
+                  <div style={{padding:"11px 2px",display:"flex",justifyContent:"center"}}>
+                    {t.nota ? (
+                      <button onClick={()=>setNotaVisible(t.nota)}
+                        style={{background:`${color}18`,border:`1px solid ${color}44`,borderRadius:4,color,cursor:"pointer",fontSize:12,padding:"2px 5px",fontWeight:700}}
+                        title="Ver nota">💬</button>
+                    ) : <span style={{width:24}}/>}
                   </div>
                   <div style={{padding:"11px 4px",display:"flex",justifyContent:"center"}}>
                     <button onClick={()=>onEdit(t,seccion)} style={{background:"none",border:"none",color:"#d1d5db",cursor:"pointer",fontSize:15,padding:4,borderRadius:4}}
