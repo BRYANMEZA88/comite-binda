@@ -204,7 +204,14 @@ function calcVentas(item, v) {
   const pct=totalUnid>0?Math.min(Math.round(vendUnid/totalUnid*100),100):0;
   const vel=Number(cfg.velocidad)||0;
   const meses=vel>0?Math.round(porVenderUnid/vel*10)/10:null;
-  return {porVender,totalUnid,vendUnid,porVenderUnid,pct,meses};
+  let finVentas="—";
+  if(totalUnid>0&&porVenderUnid===0) finVentas="Vendido";
+  else if(meses!==null){
+    const f=new Date(); f.setDate(f.getDate()+Math.round(meses*30.44));
+    const m=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"][f.getMonth()];
+    finVentas=`${m} ${f.getFullYear()}`;
+  }
+  return {porVender,totalUnid,vendUnid,porVenderUnid,pct,meses,finVentas};
 }
 
 // Convierte el esquema viejo de ventas al nuevo sin perder datos
@@ -370,7 +377,7 @@ function generarPDF(nombreComite, orden, items, ventas, tieneVentas) {
 
     if(tieneVentas&&ventas&&ventas[nombre]){
       const cv=calcVentas(d,ventas[nombre]);
-      const kpis=[{label:"AVANCE VENTAS",valor:`${cv.pct}%`},{label:"DPTOS + OFIC. VENDIDOS",valor:`${cv.vendUnid}/${cv.totalUnid}`},{label:"FIN DE OBRA",valor:d.finObra||"—"},{label:"FIN DE VENTAS",valor:d.finVentas||"—"}];
+      const kpis=[{label:"AVANCE VENTAS",valor:`${cv.pct}%`},{label:"DPTOS + OFIC. VENDIDOS",valor:`${cv.vendUnid}/${cv.totalUnid}`},{label:"FIN DE OBRA",valor:d.finObra||"—"},{label:"FIN DE VENTAS (EST.)",valor:cv.finVentas}];
       const kpiY=H*0.78;const kpiW=(W-40)/4;
       kpis.forEach((k,i)=>{
         const x=20+i*kpiW;
@@ -634,7 +641,7 @@ function VistaComite({comite, onVolver}) {
     const cfg={deptos:form.deptos||0,estac:form.estac||0,locales:form.locales||0,oficinas:form.oficinas||0,velocidad:form.velocidad||0};
     upd(prev=>{
       const ren=o=>o?Object.fromEntries(Object.entries(o).map(([k,v])=>[k===viejo?nuevo:k,v])):o;
-      const itemNuevo={...prev.items[viejo],fase:form.fase,color:form.color,finObra:form.finObra,finVentas:form.finVentas};
+      const itemNuevo={...prev.items[viejo],fase:form.fase,color:form.color,finObra:form.finObra};
       if(comite.tieneVentas) itemNuevo.config=cfg;
       const items=ren({...prev.items,[viejo]:itemNuevo});
       const orden=(prev.orden||[]).map(p=>p===viejo?nuevo:p);
@@ -787,7 +794,7 @@ function VistaComite({comite, onVolver}) {
                     />
                   )}
                   {tabActiva==="config"&&item&&(
-                    <TabConfiguracion nombre={activo} item={item} color={item.color} tieneVentas={comite.tieneVentas} onSave={guardarConfig}/>
+                    <TabConfiguracion nombre={activo} item={item} color={item.color} tieneVentas={comite.tieneVentas} finVentasAuto={calcVentas(item,venta).finVentas} onSave={guardarConfig}/>
                   )}
                 </div>
               </div>
@@ -995,7 +1002,7 @@ function TabVentasGeneral({nombre,ventas,item,color,onEditarVentas}) {
         <div style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:8}}>Cronograma</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
           <div style={{fontSize:13,color:"#6b7280"}}>Fin de obra: <strong style={{color:"#111"}}>{item?.finObra||"—"}</strong></div>
-          <div style={{fontSize:13,color:"#6b7280"}}>Fin de ventas: <strong style={{color:"#111"}}>{item?.finVentas||"—"}</strong></div>
+          <div style={{fontSize:13,color:"#6b7280"}}>Fin de ventas: <strong style={{color:"#111"}}>{c.finVentas}</strong></div>
           <div style={{fontSize:13,color:"#6b7280"}}>Fase: <strong style={{color}}>{item?.fase}</strong></div>
           <div style={{fontSize:13,color:"#6b7280"}}>Meses restantes: <strong style={{color:"#111"}}>{c.meses===null?"—":c.meses}</strong></div>
         </div>
@@ -1004,9 +1011,9 @@ function TabVentasGeneral({nombre,ventas,item,color,onEditarVentas}) {
   );
 }
 
-function TabConfiguracion({nombre,item,color,tieneVentas,onSave}) {
-  const [form,setForm]=useState({nombre,fase:item.fase||"",color:item.color,finObra:item.finObra||"",finVentas:item.finVentas||"",...(item.config||{})});
-  useEffect(()=>{setForm({nombre,fase:item.fase||"",color:item.color,finObra:item.finObra||"",finVentas:item.finVentas||"",...(item.config||{})});},[nombre]);
+function TabConfiguracion({nombre,item,color,tieneVentas,finVentasAuto,onSave}) {
+  const [form,setForm]=useState({nombre,fase:item.fase||"",color:item.color,finObra:item.finObra||"",...(item.config||{})});
+  useEffect(()=>{setForm({nombre,fase:item.fase||"",color:item.color,finObra:item.finObra||"",...(item.config||{})});},[nombre]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const lbl={fontSize:11,color:"#888",letterSpacing:1,textTransform:"uppercase",display:"block",marginBottom:5};
   const inp={width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,boxSizing:"border-box",color:"#111"};
@@ -1021,7 +1028,7 @@ function TabConfiguracion({nombre,item,color,tieneVentas,onSave}) {
         <div><label style={lbl}>Nombre</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value.toUpperCase())} style={inp}/></div>
         <div><label style={lbl}>Fase / Etiqueta</label><input value={form.fase} onChange={e=>set("fase",e.target.value)} style={inp}/></div>
         <div><label style={lbl}>Fin de obra</label><input value={form.finObra} onChange={e=>set("finObra",e.target.value)} placeholder="Ej: Dic 2026" style={inp}/></div>
-        <div><label style={lbl}>Fin de ventas</label><input value={form.finVentas} onChange={e=>set("finVentas",e.target.value)} placeholder="Ej: Mar 2027" style={inp}/></div>
+        {tieneVentas&&<div><label style={lbl}>Fin de ventas (automático)</label><div style={{...inp,background:"#f3f4f6",color:"#374151",fontWeight:700}}>{finVentasAuto}</div></div>}
       </div>
       <div style={{marginBottom:20}}>
         <label style={lbl}>Color</label>
