@@ -37,7 +37,7 @@ const ESTADO_STYLE = {
   "Bloqueado":  {bg:"#fde8e8",text:"#b91c1c",border:"#f5a5a5"},
 };
 const ESTADOS      = ["En Proceso","En espera","Completado","Bloqueado"];
-const RESPONSABLES = ["Roy","Kate","Klaus","Bryan","Mirtha","Jesus","Italo","Miguel C."];
+const RESPONSABLES = ["Roy","Kate","Klaus","Bryan","Mirtha","Jesus","Italo","Miguel C.","Alvaro","Nelly","Jaime","Italo BG"];
 
 // ─── DATOS INICIALES COMITÉ LUNES ────────────────────────────
 const LUNES_INICIAL = {
@@ -180,8 +180,8 @@ function ModalTarea({tarea,color,seccion,secciones,proyectoNombre,onSave,onDelet
           </div>
           <div>
             <label style={{fontSize:11,color:"#888",letterSpacing:1,textTransform:"uppercase",display:"block",marginBottom:5}}>Nota</label>
-            <input value={form.nota} onChange={e=>set("nota",e.target.value)}
-              style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,boxSizing:"border-box",color:"#555"}}/>
+            <textarea value={form.nota} onChange={e=>set("nota",e.target.value)} rows={3}
+              style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,boxSizing:"border-box",color:"#555",resize:"vertical",fontFamily:"inherit",lineHeight:1.5}}/>
           </div>
           <div style={{display:"flex",gap:10}}>
             <button onClick={()=>onSave(form)} style={{flex:1,background:color,color:"#fff",border:"none",borderRadius:8,padding:"12px",cursor:"pointer",fontWeight:700,fontSize:14}}>Guardar</button>
@@ -191,6 +191,36 @@ function ModalTarea({tarea,color,seccion,secciones,proyectoNombre,onSave,onDelet
       </div>
     </div>
   );
+}
+
+// ─── CÁLCULOS DE VENTAS ──────────────────────────────────────
+function calcVentas(item, v) {
+  const cfg=item?.config||{}, vend=v?.vendidos||{};
+  const porVender={};
+  ["deptos","estac","locales","oficinas"].forEach(k=>{porVender[k]=Math.max((cfg[k]||0)-(vend[k]||0),0);});
+  const totalUnid=(cfg.deptos||0)+(cfg.oficinas||0);   // solo departamentos + oficinas
+  const vendUnid=(vend.deptos||0)+(vend.oficinas||0);
+  const porVenderUnid=Math.max(totalUnid-vendUnid,0);
+  const pct=totalUnid>0?Math.min(Math.round(vendUnid/totalUnid*100),100):0;
+  const vel=Number(cfg.velocidad)||0;
+  const meses=vel>0?Math.round(porVenderUnid/vel*10)/10:null;
+  return {porVender,totalUnid,vendUnid,porVenderUnid,pct,meses};
+}
+
+// Convierte el esquema viejo de ventas al nuevo sin perder datos
+function migrarVentas(data) {
+  if(!data||!data.ventas) return data;
+  const ventas={...data.ventas}, items={...(data.items||{})};
+  Object.keys(ventas).forEach(n=>{
+    const v=ventas[n];
+    if(v&&v.vendidos===undefined){
+      if(items[n]&&!items[n].config){
+        items[n]={...items[n],config:{deptos:v.total||0,estac:v.totalEstac||0,locales:0,oficinas:0,velocidad:v.velocidad||0}};
+      }
+      ventas[n]={vendidos:{deptos:v.deptos||0,estac:v.estac||0,locales:0,oficinas:0},separaciones:{deptos:0,estac:0,locales:0,oficinas:0}};
+    }
+  });
+  return {...data,items,ventas};
 }
 
 // ─── MODAL NUEVO/EDITAR ITEM ──────────────────────────────────
@@ -268,28 +298,40 @@ function ModalSecciones({secciones,color,onSave,onClose}) {
   );
 }
 
-// ─── MODAL VENTAS ─────────────────────────────────────────────
-function ModalVentas({nombre,ventas,color,onSave,onClose}) {
-  const [form,setForm]=useState({...ventas});
-  const set=(k,v)=>setForm(f=>({...f,[k]:Number(v)}));
+// ─── MODAL VENTAS (vendidos + separaciones) ───────────────────
+const TIPOS = [{k:"deptos",l:"Departamentos"},{k:"estac",l:"Estacionamientos"},{k:"locales",l:"Locales comerciales"},{k:"oficinas",l:"Oficinas"}];
+
+function ModalVentas({nombre,ventas,item,color,onSave,onClose}) {
+  const [vend,setVend]=useState({...(ventas?.vendidos||{})});
+  const [sep,setSep]=useState({...(ventas?.separaciones||{})});
+  const cfg=item?.config||{};
+  const num=(setter,k,v)=>setter(f=>({...f,[k]:Math.max(0,Number(v)||0)}));
+  const bloque=(titulo,datos,setter,mostrarTotal)=>(
+    <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:"14px 16px"}}>
+      <div style={{fontSize:13,fontWeight:800,color,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>{titulo}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        {TIPOS.map(({k,l})=>(
+          <div key={k}>
+            <label style={{fontSize:11,color:"#888",letterSpacing:1,textTransform:"uppercase",display:"block",marginBottom:5}}>{l}{mostrarTotal?` (de ${cfg[k]||0})`:""}</label>
+            <input type="number" min="0" value={datos[k]||0} onChange={e=>num(setter,k,e.target.value)}
+              style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:14,boxSizing:"border-box",color:"#111",fontWeight:600}}/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
+      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}}>
         <div style={{padding:"18px 24px 14px",borderBottom:"1px solid #f0f0f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontWeight:700,fontSize:16,color:"#111"}}>Editar ventas — {nombre}</div>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#999",fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
-        <div style={{padding:24,display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-          {[{k:"avanceVentas",l:"% Avance ventas"},{k:"deptos",l:"Dptos vendidos"},{k:"porVender",l:"Dptos por vender"},{k:"total",l:"Total dptos"},{k:"estac",l:"Estac. vendidos"},{k:"porVenderEstac",l:"Estac. por vender"},{k:"totalEstac",l:"Total estacionamientos"},{k:"velocidad",l:"Velocidad (u/mes)"},{k:"meses",l:"Meses restantes"}].map(({k,l})=>(
-            <div key={k}>
-              <label style={{fontSize:11,color:"#888",letterSpacing:1,textTransform:"uppercase",display:"block",marginBottom:5}}>{l}</label>
-              <input type="number" value={form[k]||0} onChange={e=>set(k,e.target.value)}
-                style={{width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:14,boxSizing:"border-box",color:"#111",fontWeight:600}}/>
-            </div>
-          ))}
-        </div>
-        <div style={{padding:"0 24px 24px"}}>
-          <button onClick={()=>onSave(form)} style={{width:"100%",background:color,color:"#fff",border:"none",borderRadius:8,padding:"12px",cursor:"pointer",fontWeight:700,fontSize:14}}>Guardar</button>
+        <div style={{padding:24,display:"flex",flexDirection:"column",gap:14}}>
+          {bloque("Vendidos",vend,setVend,true)}
+          {bloque("Separaciones",sep,setSep,false)}
+          <div style={{fontSize:11,color:"#9ca3af"}}>Los totales y la velocidad se definen en la pestaña Configuración. Lo demás se calcula solo.</div>
+          <button onClick={()=>onSave({vendidos:vend,separaciones:sep})} style={{background:color,color:"#fff",border:"none",borderRadius:8,padding:"12px",cursor:"pointer",fontWeight:700,fontSize:14}}>Guardar</button>
         </div>
       </div>
     </div>
@@ -327,8 +369,8 @@ function generarPDF(nombreComite, orden, items, ventas, tieneVentas) {
     pdf.text(fechaHoy,W/2,H*0.70,{align:"center"});
 
     if(tieneVentas&&ventas&&ventas[nombre]){
-      const v=ventas[nombre];
-      const kpis=[{label:"AVANCE VENTAS",valor:`${v.avanceVentas}%`},{label:"DPTOS VENDIDOS",valor:`${v.deptos}/${v.total}`},{label:"FIN DE OBRA",valor:d.finObra||"—"},{label:"FIN DE VENTAS",valor:d.finVentas||"—"}];
+      const cv=calcVentas(d,ventas[nombre]);
+      const kpis=[{label:"AVANCE VENTAS",valor:`${cv.pct}%`},{label:"DPTOS + OFIC. VENDIDOS",valor:`${cv.vendUnid}/${cv.totalUnid}`},{label:"FIN DE OBRA",valor:d.finObra||"—"},{label:"FIN DE VENTAS",valor:d.finVentas||"—"}];
       const kpiY=H*0.78;const kpiW=(W-40)/4;
       kpis.forEach((k,i)=>{
         const x=20+i*kpiW;
@@ -455,13 +497,14 @@ function VistaComite({comite, onVolver}) {
   const [modalVentas,setModalVentas]=useState(false);
   const [modalItem,  setModalItem] =useState(null); // null | "nuevo" | nombre
   const [modalSecciones,setModalSecciones]=useState(false);
+  const [sidebarDrag,setSidebarDrag]=useState(null);
 
   const docId = `comite_${comite.id}`;
 
   useEffect(()=>{
     cargar(docId).then(async data=>{
       if(data && (data.orden !== undefined || data.items !== undefined)){
-        setEstado(data); setActivo((data.orden||[])[0]||null);
+        const mig=migrarVentas(data); setEstado(mig); setActivo((mig.orden||[])[0]||null);
       } else if(comite.id==="lunes"){
         const viejo = await cargar("estado");
         if(viejo && viejo.proyData){
@@ -476,11 +519,11 @@ function VistaComite({comite, onVolver}) {
               tareas: p.tareas||{OBRA:[],GESTIÓN:[],MARKETING:[],COMERCIAL:[],FINANCIEROS:[],LEGALES:[]}
             };
           });
-          const migrado = { orden, items, ventas: viejo.ventas||{} };
+          const migrado = migrarVentas({ orden, items, ventas: viejo.ventas||{} });
           setEstado(migrado); setActivo(orden[0]||null);
           guardar(docId, migrado);
         } else {
-          setEstado(LUNES_INICIAL); setActivo(LUNES_INICIAL.orden[0]);
+          const ini=migrarVentas(LUNES_INICIAL); setEstado(ini); setActivo(ini.orden[0]);
         }
       } else {
         setEstado(comiteVacio(comite.nombre)); setActivo(null);
@@ -538,12 +581,21 @@ function VistaComite({comite, onVolver}) {
     setModalTarea(null);
   }
 
-  function moverTarea(seccion,idx,dir) {
+  function moverTarea(seccionOrigen, idxOrigen, seccionDestino, idxDestino) {
     upd(prev=>{
-      const tareas=[...(prev.items[activo].tareas[seccion]||[])];
-      const j=idx+dir; if(j<0||j>=tareas.length) return {};
-      [tareas[idx],tareas[j]]=[tareas[j],tareas[idx]];
-      return{items:{...prev.items,[activo]:{...prev.items[activo],tareas:{...prev.items[activo].tareas,[seccion]:tareas}}}};
+      const it = prev.items[activo];
+      const tareasOrigen = [...(it.tareas[seccionOrigen]||[])];
+      const tarea = tareasOrigen[idxOrigen];
+      if(!tarea) return {};
+      tareasOrigen.splice(idxOrigen, 1);
+      if(seccionOrigen === seccionDestino) {
+        tareasOrigen.splice(idxDestino, 0, tarea);
+        return{items:{...prev.items,[activo]:{...it,tareas:{...it.tareas,[seccionOrigen]:tareasOrigen}}}};
+      } else {
+        const tareasDestino = [...(it.tareas[seccionDestino]||[])];
+        tareasDestino.splice(idxDestino, 0, tarea);
+        return{items:{...prev.items,[activo]:{...it,tareas:{...it.tareas,[seccionOrigen]:tareasOrigen,[seccionDestino]:tareasDestino}}}};
+      }
     });
   }
 
@@ -568,12 +620,29 @@ function VistaComite({comite, onVolver}) {
 
   function crearItem(form) {
     const nombre=(form.nombre||"").trim(); if(!nombre) return;
-    const nuevoItem={color:form.color,fase:form.fase||"",finObra:"—",finVentas:"—",secciones:["GESTIÓN","PENDIENTES","EN PROCESO"],tareas:{GESTIÓN:[],PENDIENTES:[],["EN PROCESO"]:[]}};
+    const nuevoItem={config:{deptos:0,estac:0,locales:0,oficinas:0,velocidad:0},color:form.color,fase:form.fase||"",finObra:"—",finVentas:"—",secciones:["GESTIÓN","PENDIENTES","EN PROCESO"],tareas:{GESTIÓN:[],PENDIENTES:[],["EN PROCESO"]:[]}};
     upd(prev=>{
-      const ventas=comite.tieneVentas?{...prev.ventas,[nombre]:{avanceVentas:0,deptos:0,porVender:0,total:0,estac:0,porVenderEstac:0,totalEstac:0,velocidad:0,meses:0}}:prev.ventas;
+      const ventas=comite.tieneVentas?{...prev.ventas,[nombre]:{vendidos:{deptos:0,estac:0,locales:0,oficinas:0},separaciones:{deptos:0,estac:0,locales:0,oficinas:0}}}:prev.ventas;
       return{orden:[...(prev.orden||[]),nombre],items:{...(prev.items||{}),[nombre]:nuevoItem},ventas};
     });
     setActivo(nombre); setModalItem(null);
+  }
+
+  function guardarConfig(form) {
+    const nuevo=(form.nombre||"").trim().toUpperCase(); const viejo=activo;
+    if(nuevo!==viejo && (estado.items||{})[nuevo]){window.alert(`Ya existe "${nuevo}".`);return;}
+    const cfg={deptos:form.deptos||0,estac:form.estac||0,locales:form.locales||0,oficinas:form.oficinas||0,velocidad:form.velocidad||0};
+    upd(prev=>{
+      const ren=o=>o?Object.fromEntries(Object.entries(o).map(([k,v])=>[k===viejo?nuevo:k,v])):o;
+      const itemNuevo={...prev.items[viejo],fase:form.fase,color:form.color,finObra:form.finObra,finVentas:form.finVentas};
+      if(comite.tieneVentas) itemNuevo.config=cfg;
+      const items=ren({...prev.items,[viejo]:itemNuevo});
+      const orden=(prev.orden||[]).map(p=>p===viejo?nuevo:p);
+      const out={orden,items};
+      if(prev.ventas) out.ventas=ren(prev.ventas);
+      return out;
+    });
+    setActivo(nuevo);
   }
 
   function guardarSecciones(nuevasSecciones) {
@@ -626,7 +695,11 @@ function VistaComite({comite, onVolver}) {
             const urg=Object.values(d.tareas||{}).flat().filter(t=>{const dias=diasHasta(t.vencimiento);return dias!==null&&dias<=7&&t.estado!=="Completado";}).length;
             const esActivo=activo===p;
             return(
-              <div key={p} style={{marginBottom:4,position:"relative"}}>
+              <div key={p} draggable
+                onDragStart={()=>setSidebarDrag(idx)}
+                onDragOver={e=>e.preventDefault()}
+                onDrop={()=>{if(sidebarDrag!==null&&sidebarDrag!==idx){const orden=[...(estado.orden||[])];const [moved]=orden.splice(sidebarDrag,1);orden.splice(idx,0,moved);upd(()=>({orden}));setSidebarDrag(null);}}}
+                style={{marginBottom:4,position:"relative",opacity:sidebarDrag===idx?0.5:1,cursor:"grab"}}>
                 <div onClick={()=>{setActivo(p);setTabActiva("tareas");}} style={{
                   background:esActivo?`${d.color}12`:"transparent",
                   border:`1px solid ${esActivo?d.color:"transparent"}`,
@@ -635,7 +708,7 @@ function VistaComite({comite, onVolver}) {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:comite.tieneVentas?6:0}}>
                     <div style={{fontSize:12,fontWeight:esActivo?700:500,color:esActivo?d.color:"#374151",flex:1,marginRight:4}}>{p}</div>
                     <div style={{display:"flex",alignItems:"center",gap:4}}>
-                      {comite.tieneVentas&&v&&<div style={{fontSize:14,fontWeight:800,color:d.color}}>{v.avanceVentas}%</div>}
+                      {comite.tieneVentas&&<div style={{fontSize:14,fontWeight:800,color:d.color}}>{calcVentas(d,v).pct}%</div>}
                       {/* controles */}
                       <div style={{display:"flex",flexDirection:"column",gap:1}}>
                         <button onClick={e=>{e.stopPropagation();moverItem(idx,-1);}} disabled={idx===0}
@@ -647,7 +720,7 @@ function VistaComite({comite, onVolver}) {
                         style={{background:"none",border:"none",cursor:"pointer",color:"#f5a5a5",fontSize:13,padding:"1px 3px",lineHeight:1}}>✕</button>
                     </div>
                   </div>
-                  {comite.tieneVentas&&v&&<Barra valor={v.avanceVentas} color={d.color}/>}
+                  {comite.tieneVentas&&<Barra valor={calcVentas(d,v).pct} color={d.color}/>}
                   <div style={{marginTop:comite.tieneVentas?6:0,fontSize:10,color:urg>0?"#b91c1c":"#9ca3af"}}>{urg>0?`⚑ ${urg} urgente${urg>1?"s":""}`:d.fase}</div>
                 </div>
               </div>
@@ -669,11 +742,11 @@ function VistaComite({comite, onVolver}) {
           ):(
             <>
               {/* KPIs */}
-              {comite.tieneVentas&&venta&&(
+              {comite.tieneVentas&&item&&(
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:10,marginBottom:20}}>
                   {[
-                    {label:"Avance ventas",  valor:`${venta.avanceVentas||0}%`,color:item?.color},
-                    {label:"Dptos vendidos", valor:`${venta.deptos||0}/${venta.total||0}`,color:"#374151"},
+                    {label:"Avance ventas",  valor:`${calcVentas(item,venta).pct}%`,color:item?.color},
+                    {label:"Dptos+Ofic. vendidos", valor:`${calcVentas(item,venta).vendUnid}/${calcVentas(item,venta).totalUnid}`,color:"#374151"},
                     {label:"Tareas urgentes",valor:Object.values(item?.tareas||{}).flat().filter(t=>{const d=diasHasta(t.vencimiento);return d!==null&&d<=7&&t.estado!=="Completado";}).length,color:"#b91c1c"},
                     {label:"Fin de obra",    valor:item?.finObra||"—",color:"#374151"},
                   ].map(k=>(
@@ -690,6 +763,7 @@ function VistaComite({comite, onVolver}) {
                 <div style={{display:"flex",borderBottom:"1px solid #e5e7eb",alignItems:"center"}}>
                   <button onClick={()=>setTabActiva("tareas")} style={{padding:"13px 22px",border:"none",cursor:"pointer",fontSize:14,fontWeight:tabActiva==="tareas"?700:400,color:tabActiva==="tareas"?item?.color:"#6b7280",background:"transparent",borderBottom:tabActiva==="tareas"?`2px solid ${item?.color}`:"2px solid transparent",marginBottom:-1}}>📋 Tareas</button>
                   {comite.tieneVentas&&<button onClick={()=>setTabActiva("ventas")} style={{padding:"13px 22px",border:"none",cursor:"pointer",fontSize:14,fontWeight:tabActiva==="ventas"?700:400,color:tabActiva==="ventas"?item?.color:"#6b7280",background:"transparent",borderBottom:tabActiva==="ventas"?`2px solid ${item?.color}`:"2px solid transparent",marginBottom:-1}}>💰 Ventas</button>}
+                  <button onClick={()=>setTabActiva("config")} style={{padding:"13px 22px",border:"none",cursor:"pointer",fontSize:14,fontWeight:tabActiva==="config"?700:400,color:tabActiva==="config"?item?.color:"#6b7280",background:"transparent",borderBottom:tabActiva==="config"?`2px solid ${item?.color}`:"2px solid transparent",marginBottom:-1}}>⚙ Configuración</button>
                   <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:16,gap:10}}>
                     <span style={{fontSize:14,fontWeight:800,color:item?.color}}>{activo}</span>
                     <span style={{fontSize:11,color:"#9ca3af",textTransform:"uppercase"}}>{item?.fase}</span>
@@ -706,12 +780,14 @@ function VistaComite({comite, onVolver}) {
                       onMover={moverTarea}
                     />
                   )}
-                  {tabActiva==="ventas"&&comite.tieneVentas&&venta&&(
+                  {tabActiva==="ventas"&&comite.tieneVentas&&item&&(
                     <TabVentasGeneral
-                      nombre={activo} ventas={venta} item={item} color={item?.color}
+                      nombre={activo} ventas={venta||{}} item={item} color={item?.color}
                       onEditarVentas={()=>setModalVentas(true)}
-                      onEditarItem={()=>setModalItem(activo)}
                     />
+                  )}
+                  {tabActiva==="config"&&item&&(
+                    <TabConfiguracion nombre={activo} item={item} color={item.color} tieneVentas={comite.tieneVentas} onSave={guardarConfig}/>
                   )}
                 </div>
               </div>
@@ -729,23 +805,29 @@ function VistaComite({comite, onVolver}) {
           onSave={guardarTarea} onDelete={eliminarTarea} onClose={()=>setModalTarea(null)}
         />
       )}
-      {modalVentas&&venta&&item&&(
-        <ModalVentas nombre={activo} ventas={venta} color={item.color}
-          onSave={v=>upd(prev=>({ventas:{...prev.ventas,[activo]:v}}))||setModalVentas(false)}
+      {modalVentas&&item&&(
+        <ModalVentas nombre={activo} ventas={venta||{}} item={item} color={item.color}
+          onSave={v=>{upd(prev=>({ventas:{...prev.ventas,[activo]:v}}));setModalVentas(false);}}
           onClose={()=>setModalVentas(false)}/>
       )}
       {modalItem==="nuevo"&&<ModalItem esNuevo={true} onSave={crearItem} onClose={()=>setModalItem(null)}/>}
-      {modalItem&&modalItem!=="nuevo"&&item&&(
-        <ModalItem item={{nombre:activo,fase:item.fase,color:item.color}} esNuevo={false}
-          onSave={form=>{
-            upd(prev=>({items:{...prev.items,[activo]:{...prev.items[activo],fase:form.fase,color:form.color}}}));
-            setModalItem(null);
-          }}
-          onClose={()=>setModalItem(null)}/>
-      )}
       {modalSecciones&&item&&(
         <ModalSecciones secciones={secciones} color={item.color} onSave={guardarSecciones} onClose={()=>setModalSecciones(false)}/>
       )}
+    </div>
+  );
+}
+
+function NotaPopup({nota, onClose}) {
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+      <div style={{background:"#fff",borderRadius:12,padding:24,maxWidth:440,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.15)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:700,fontSize:14,color:"#111"}}>Nota</div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:"#999",fontSize:18,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{fontSize:13,color:"#444",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{nota}</div>
+      </div>
     </div>
   );
 }
@@ -754,8 +836,20 @@ function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
   const secciones=item.secciones||[];
   const todasTareas=Object.values(item.tareas||{}).flat();
   const urgentes=todasTareas.filter(t=>{const d=diasHasta(t.vencimiento);return d!==null&&d<=7&&t.estado!=="Completado";}).length;
+  const [notaVisible, setNotaVisible] = useState(null);
+  const [dragSrc, setDragSrc] = useState(null); // {seccion, idx}
+
+  function handleDragStart(seccion, idx) { setDragSrc({seccion, idx}); }
+  function handleDrop(seccion, idx) {
+    if(!dragSrc) return;
+    if(dragSrc.seccion === seccion && dragSrc.idx === idx) return;
+    onMover(dragSrc.seccion, dragSrc.idx, seccion, idx);
+    setDragSrc(null);
+  }
+
   return(
     <div>
+      {notaVisible && <NotaPopup nota={notaVisible} onClose={()=>setNotaVisible(null)}/>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           {[{label:"Total",val:todasTareas.length,c:"#374151"},{label:"En proceso",val:todasTareas.filter(t=>t.estado==="En Proceso").length,c:"#8a6000"},{label:"Urgentes",val:urgentes,c:urgentes>0?"#b91c1c":"#9ca3af"},{label:"Completadas",val:todasTareas.filter(t=>t.estado==="Completado").length,c:"#1a7a3c"}].map(k=>(
@@ -778,29 +872,35 @@ function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
               <span style={{fontSize:11,color:"#9ca3af"}}>{tareas.length} tarea{tareas.length!==1?"s":""}</span>
               <button onClick={()=>onNueva(seccion)} style={{marginLeft:"auto",background:"none",border:`1px dashed ${color}88`,borderRadius:6,padding:"3px 10px",color,fontSize:11,cursor:"pointer",fontWeight:600}}>+ agregar</button>
             </div>
-            {tareas.length===0&&<div style={{padding:"8px 12px",fontSize:12,color:"#d1d5db",fontStyle:"italic"}}>Sin tareas.</div>}
+            {tareas.length===0&&(
+              <div
+                onDragOver={e=>e.preventDefault()}
+                onDrop={()=>handleDrop(seccion,0)}
+                style={{padding:"12px 14px",fontSize:12,color:"#d1d5db",fontStyle:"italic",border:"2px dashed transparent",borderRadius:8,transition:"border 0.15s"}}
+                onDragEnter={e=>e.currentTarget.style.borderColor=color}
+                onDragLeave={e=>e.currentTarget.style.borderColor="transparent"}
+              >Sin tareas. Arrastra aquí o agrega una.</div>
+            )}
             {tareas.map((t,i)=>{
               const dias=diasHasta(t.vencimiento);
               const urgente=dias!==null&&dias<=7&&t.estado!=="Completado";
               const st=ESTADO_STYLE[t.estado]||ESTADO_STYLE["En espera"];
               return(
-                <div key={t.id} style={{
-                  display:"grid",gridTemplateColumns:"28px minmax(0,2fr) 75px 90px minmax(80px,1fr) 120px 32px",
-                  alignItems:"center",gap:0,
-                  background:t.estado==="Completado"?"#f0faf4":urgente?"#fff5f5":i%2===0?"#fff":"#fafafa",
-                  borderLeft:urgente?"3px solid #b91c1c":t.estado==="Completado"?"3px solid #1a7a3c":"3px solid transparent",
-                  borderBottom:"1px solid #f0f0f0",opacity:t.estado==="Completado"?0.8:1,
-                }}>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 0",gap:1}}>
-                    <button onClick={()=>onMover(seccion,i,-1)} disabled={i===0}
-                      style={{background:"none",border:"none",cursor:i===0?"default":"pointer",color:i===0?"#e5e7eb":"#9ca3af",fontSize:11,padding:"1px 4px",lineHeight:1}}
-                      onMouseOver={e=>{if(i>0)e.currentTarget.style.color=color}}
-                      onMouseOut={e=>e.currentTarget.style.color=i===0?"#e5e7eb":"#9ca3af"}>▲</button>
-                    <button onClick={()=>onMover(seccion,i,1)} disabled={i===tareas.length-1}
-                      style={{background:"none",border:"none",cursor:i===tareas.length-1?"default":"pointer",color:i===tareas.length-1?"#e5e7eb":"#9ca3af",fontSize:11,padding:"1px 4px",lineHeight:1}}
-                      onMouseOver={e=>{if(i<tareas.length-1)e.currentTarget.style.color=color}}
-                      onMouseOut={e=>e.currentTarget.style.color=i===tareas.length-1?"#e5e7eb":"#9ca3af"}>▼</button>
-                  </div>
+                <div key={t.id}
+                  draggable
+                  onDragStart={()=>handleDragStart(seccion,i)}
+                  onDragOver={e=>e.preventDefault()}
+                  onDrop={()=>handleDrop(seccion,i)}
+                  style={{
+                    display:"grid",gridTemplateColumns:"20px minmax(0,2fr) 75px 90px minmax(80px,1fr) 110px 28px 28px",
+                    alignItems:"center",gap:0,
+                    background:t.estado==="Completado"?"#f0faf4":urgente?"#fff5f5":i%2===0?"#fff":"#fafafa",
+                    borderLeft:urgente?"3px solid #b91c1c":t.estado==="Completado"?"3px solid #1a7a3c":"3px solid transparent",
+                    borderBottom:"1px solid #f0f0f0",opacity:t.estado==="Completado"?0.8:1,
+                    cursor:"grab",transition:"background 0.15s",
+                  }}>
+                  {/* Handle drag */}
+                  <div style={{padding:"0 4px",color:"#d1d5db",fontSize:13,textAlign:"center",cursor:"grab"}}>⠿</div>
                   <div style={{padding:"11px 10px",fontSize:13,color:t.estado==="Completado"?"#6b7280":"#111",fontWeight:500,textDecoration:t.estado==="Completado"?"line-through":"none"}}>{t.tarea}</div>
                   <div style={{padding:"11px 6px",fontSize:12,color:"#6b7280"}}>{t.responsable}</div>
                   <div style={{padding:"11px 6px"}}>
@@ -813,7 +913,14 @@ function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
                   <div style={{padding:"11px 6px",fontSize:11,color:"#9ca3af",display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
                     <span>{formatFecha(t.vencimiento)}</span>
                     <Alerta dias={dias} completado={t.estado==="Completado"}/>
-                    {t.nota&&<span style={{color:"#c0c0c0",fontStyle:"italic",fontSize:10,display:"block",width:"100%"}}>{t.nota}</span>}
+                  </div>
+                  {/* Botón nota */}
+                  <div style={{padding:"11px 2px",display:"flex",justifyContent:"center"}}>
+                    {t.nota ? (
+                      <button onClick={()=>setNotaVisible(t.nota)}
+                        style={{background:`${color}18`,border:`1px solid ${color}44`,borderRadius:4,color,cursor:"pointer",fontSize:12,padding:"2px 5px",fontWeight:700}}
+                        title="Ver nota">💬</button>
+                    ) : <span style={{width:24}}/>}
                   </div>
                   <div style={{padding:"11px 4px",display:"flex",justifyContent:"center"}}>
                     <button onClick={()=>onEdit(t,seccion)} style={{background:"none",border:"none",color:"#d1d5db",cursor:"pointer",fontSize:15,padding:4,borderRadius:4}}
@@ -830,39 +937,59 @@ function TabTareasGeneral({item,color,onEdit,onNueva,onMover}) {
   );
 }
 
-function TabVentasGeneral({nombre,ventas,item,color,onEditarVentas,onEditarItem}) {
-  const v=ventas||{};
-  const pctD=v.total>0?Math.round((v.deptos/v.total)*100):0;
-  const pctE=v.totalEstac>0?Math.round((v.estac/v.totalEstac)*100):0;
+function TabVentasGeneral({nombre,ventas,item,color,onEditarVentas}) {
+  const c=calcVentas(item,ventas);
+  const cfg=item?.config||{};
+  const sep=ventas?.separaciones||{};
+  const vend=ventas?.vendidos||{};
   return(
     <div>
-      <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginBottom:16}}>
-        <button onClick={onEditarItem} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"#374151",fontWeight:600}}>✎ Editar proyecto</button>
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}>
         <button onClick={onEditarVentas} style={{background:"#f3f4f6",border:"1px solid #e5e7eb",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:13,color:"#374151",fontWeight:600}}>✎ Editar ventas</button>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:20}}>
-        {[{label:"Avance ventas",valor:`${v.avanceVentas||0}%`,c:color},{label:"Dptos vendidos",valor:v.deptos||0,c:color},{label:"Por vender",valor:v.porVender||0,c:"#6b7280"},{label:"Velocidad",valor:`${v.velocidad||0} u/m`,c:"#6b7280"}].map(k=>(
+        {[{label:"Avance ventas",valor:`${c.pct}%`,c:color},
+          {label:"Vendidos (dptos + ofic.)",valor:`${c.vendUnid}/${c.totalUnid}`,c:color},
+          {label:"Por vender (dptos + ofic.)",valor:c.porVenderUnid,c:"#6b7280"},
+          {label:"Velocidad esperada",valor:`${cfg.velocidad||0} u/mes`,c:"#6b7280"},
+          {label:"Meses restantes",valor:c.meses===null?"—":c.meses,c:"#6b7280"}].map(k=>(
           <div key={k.label} style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:"14px 16px"}}>
             <div style={{fontSize:10,color:"#9ca3af",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>{k.label}</div>
             <div style={{fontSize:24,fontWeight:800,color:k.c}}>{k.valor}</div>
           </div>
         ))}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-        {[{titulo:"Departamentos",vendidos:v.deptos||0,porVender:v.porVender||0,total:v.total||0,pct:pctD},{titulo:"Estacionamientos",vendidos:v.estac||0,porVender:v.porVenderEstac||0,total:v.totalEstac||0,pct:pctE}].map(b=>(
-          <div key={b.titulo} style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:"16px 18px"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:10}}>{b.titulo}</div>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}>
-              <span style={{fontSize:13,color:"#6b7280"}}>Vendidos</span>
-              <span style={{fontSize:13,fontWeight:700,color}}>{b.vendidos} ({b.pct}%)</span>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:14,marginBottom:14}}>
+        <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:"16px 18px"}}>
+          <div style={{fontSize:13,fontWeight:800,color,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Vendidos</div>
+          {TIPOS.map(t=>{
+            const tot=cfg[t.k]||0, v=vend[t.k]||0, p=c.porVender[t.k];
+            const pct=tot>0?Math.round(v/tot*100):0;
+            return(
+              <div key={t.k} style={{marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+                  <span style={{color:"#374151",fontWeight:600}}>{t.l}</span>
+                  <span style={{fontWeight:700,color}}>{v} / {tot} ({pct}%)</span>
+                </div>
+                <Barra valor={pct} color={color}/>
+                <div style={{fontSize:12,color:"#9ca3af",marginTop:3}}>Por vender: {p}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:"16px 18px"}}>
+          <div style={{fontSize:13,fontWeight:800,color:"#b45309",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Separaciones</div>
+          {TIPOS.map(t=>(
+            <div key={t.k} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #e5e7eb",fontSize:13}}>
+              <span style={{color:"#374151",fontWeight:600}}>{t.l}</span>
+              <span style={{fontWeight:700,color:"#111"}}>{sep[t.k]||0}</span>
             </div>
-            <Barra valor={b.pct} color={color}/>
-            <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
-              <span style={{fontSize:12,color:"#9ca3af"}}>Por vender: {b.porVender}</span>
-              <span style={{fontSize:12,color:"#9ca3af"}}>Total: {b.total}</span>
-            </div>
+          ))}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:13}}>
+            <span style={{color:"#6b7280"}}>Total separaciones</span>
+            <span style={{fontWeight:800,color:"#b45309"}}>{TIPOS.reduce((a,t)=>a+(sep[t.k]||0),0)}</span>
           </div>
-        ))}
+        </div>
       </div>
       <div style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:12,padding:"14px 18px"}}>
         <div style={{fontSize:13,fontWeight:700,color:"#374151",marginBottom:8}}>Cronograma</div>
@@ -870,9 +997,49 @@ function TabVentasGeneral({nombre,ventas,item,color,onEditarVentas,onEditarItem}
           <div style={{fontSize:13,color:"#6b7280"}}>Fin de obra: <strong style={{color:"#111"}}>{item?.finObra||"—"}</strong></div>
           <div style={{fontSize:13,color:"#6b7280"}}>Fin de ventas: <strong style={{color:"#111"}}>{item?.finVentas||"—"}</strong></div>
           <div style={{fontSize:13,color:"#6b7280"}}>Fase: <strong style={{color}}>{item?.fase}</strong></div>
-          <div style={{fontSize:13,color:"#6b7280"}}>Meses restantes: <strong style={{color:"#111"}}>{v.meses||0}</strong></div>
+          <div style={{fontSize:13,color:"#6b7280"}}>Meses restantes: <strong style={{color:"#111"}}>{c.meses===null?"—":c.meses}</strong></div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TabConfiguracion({nombre,item,color,tieneVentas,onSave}) {
+  const [form,setForm]=useState({nombre,fase:item.fase||"",color:item.color,finObra:item.finObra||"",finVentas:item.finVentas||"",...(item.config||{})});
+  useEffect(()=>{setForm({nombre,fase:item.fase||"",color:item.color,finObra:item.finObra||"",finVentas:item.finVentas||"",...(item.config||{})});},[nombre]);
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const lbl={fontSize:11,color:"#888",letterSpacing:1,textTransform:"uppercase",display:"block",marginBottom:5};
+  const inp={width:"100%",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 12px",fontSize:13,boxSizing:"border-box",color:"#111"};
+  const campoNum=(k,l,step)=>(
+    <div key={k}><label style={lbl}>{l}</label>
+      <input type="number" min="0" step={step||1} value={form[k]??0} onChange={e=>set(k,Math.max(0,Number(e.target.value)||0))} style={{...inp,fontWeight:600}}/></div>
+  );
+  return(
+    <div style={{maxWidth:640}}>
+      <div style={{fontSize:13,fontWeight:800,color,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Datos generales</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,marginBottom:18}}>
+        <div><label style={lbl}>Nombre</label><input value={form.nombre} onChange={e=>set("nombre",e.target.value.toUpperCase())} style={inp}/></div>
+        <div><label style={lbl}>Fase / Etiqueta</label><input value={form.fase} onChange={e=>set("fase",e.target.value)} style={inp}/></div>
+        <div><label style={lbl}>Fin de obra</label><input value={form.finObra} onChange={e=>set("finObra",e.target.value)} placeholder="Ej: Dic 2026" style={inp}/></div>
+        <div><label style={lbl}>Fin de ventas</label><input value={form.finVentas} onChange={e=>set("finVentas",e.target.value)} placeholder="Ej: Mar 2027" style={inp}/></div>
+      </div>
+      <div style={{marginBottom:20}}>
+        <label style={lbl}>Color</label>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {COLORES.map(c=><div key={c} onClick={()=>set("color",c)} style={{width:26,height:26,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"3px solid #111":"2px solid transparent"}}/>)}
+        </div>
+      </div>
+      {tieneVentas&&(<>
+        <div style={{fontSize:13,fontWeight:800,color,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Datos del proyecto</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:20}}>
+          {campoNum("deptos","N° de departamentos")}
+          {campoNum("estac","N° de estacionamientos")}
+          {campoNum("locales","N° de locales comerciales")}
+          {campoNum("oficinas","N° de oficinas")}
+          {campoNum("velocidad","Velocidad esperada (u/mes)",0.1)}
+        </div>
+      </>)}
+      <button onClick={()=>form.nombre.trim()&&onSave(form)} style={{background:color,color:"#fff",border:"none",borderRadius:8,padding:"12px 28px",cursor:"pointer",fontWeight:700,fontSize:14}}>Guardar configuración</button>
     </div>
   );
 }
